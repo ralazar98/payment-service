@@ -1,0 +1,15 @@
+services:
+  payment-service:
+    build:
+      context: .
+    env_file:
+      - .env
+    ports:
+      - "8081:8081"
+    networks:
+      - bank-service_app-network
+
+
+networks:
+  bank-service_app-network:
+    external: true
