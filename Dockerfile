@@ -8,6 +8,7 @@ RUN go mod download
 
 COPY .. .
 
+
 WORKDIR /app/cmd
 
 RUN go build -o payment-service .

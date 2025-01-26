@@ -1,0 +1,11 @@
+app:
+  port: 8081
+database:
+  host: "postgres-container"
+  port: 5432
+  dbname: "postgres"
+  username: "my_user"
+  password: 1234
+rabbitmq:
+  nameOfQueue: "queueOfPayment"
+  rabbitUrl: "amqp://guest:guest@rabbitmq:5672/"

@@ -3,7 +3,7 @@ package storage
 import (
 	"github.com/jackc/pgx"
 	"log"
-	"os"
+	"payment-service/configs"
 	"payment-service/internal/entity"
 	"strconv"
 	"time"
@@ -13,31 +13,27 @@ type BankStore struct {
 	conn *pgx.ConnPool
 }
 
-func New() *BankStore {
-	dbHost := os.Getenv("DB_HOST")
-	dbPortStr := os.Getenv("DB_PORT")
-	dbUser := os.Getenv("DB_USER")
-	dbPassword := os.Getenv("DB_PASSWORD")
-	dbName := os.Getenv("DB_NAME")
-	dbPort, err := strconv.Atoi(dbPortStr)
+func New(cfg configs.DatabaseConfig) *BankStore {
+
+	dbPort, err := strconv.Atoi(cfg.Port)
 	if err != nil {
 		log.Fatal("Error converting DB_PORT to integer")
 	}
 
 	connConf := pgx.ConnConfig{
-		Host:     dbHost,
+		Host:     cfg.Host,
 		Port:     uint16(dbPort),
-		User:     dbUser,
-		Password: dbPassword,
-		Database: dbName,
+		User:     cfg.Username,
+		Password: cfg.DBPassword,
+		Database: cfg.DBName,
 	}
-
+	log.Println(connConf)
 	pool, err := pgx.NewConnPool(pgx.ConnPoolConfig{
 		ConnConfig:     connConf,
 		MaxConnections: 10,
 	})
 	if err != nil {
-		log.Println("Error creating new connection pool")
+		log.Println("Error creating new connection pool", err)
 	} else {
 		log.Println("Successfully created new connection pool")
 		return &BankStore{

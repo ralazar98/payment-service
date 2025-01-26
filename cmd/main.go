@@ -1,21 +1,39 @@
 package main
 
 import (
-	"github.com/go-chi/chi/v5"
-	"net/http"
+	"context"
+	"log"
 	"os"
+	"os/signal"
+	"payment-service/configs"
 	"payment-service/internal/rabbit"
 	"payment-service/internal/storage"
+	"syscall"
+	"time"
 )
 
 func main() {
-	r := chi.NewRouter()
-	store := storage.New()
-	newRabbit := rabbit.NewRabbit(store)
-	newRabbit.NewConnection()
 
-	go newRabbit.Updater()
+	exitContext, cancel := context.WithCancel(context.Background())
 
-	address := ":" + os.Getenv("PORT")
-	http.ListenAndServe(address, r)
+	cfg, err := configs.LoadConfig()
+	if err != nil {
+		log.Println("Error loading config:", err)
+	}
+
+	store := storage.New(cfg.Database)
+
+	newRabbit := rabbit.NewRabbit(exitContext, store)
+	err = newRabbit.NewConnection(cfg.RabbitMQ)
+	if err != nil {
+		log.Println("Connection error:", err)
+	}
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	cancel()
+	time.Sleep(1 * time.Second)
+	log.Println("Shutting down server...")
+
 }
