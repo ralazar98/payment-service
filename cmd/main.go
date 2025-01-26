@@ -28,7 +28,7 @@ func main() {
 	if err != nil {
 		log.Println("Connection error:", err)
 	}
-
+	log.Println("Test")
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
