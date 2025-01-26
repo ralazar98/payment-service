@@ -31,8 +31,11 @@ func main() {
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-	cancel()
+	select {
+	case <-quit:
+		log.Println("Canceling context")
+		cancel()
+	}
 	time.Sleep(1 * time.Second)
 	log.Println("Shutting down server...")
 

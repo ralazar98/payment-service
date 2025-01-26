@@ -29,6 +29,7 @@ type RabbitMQConfig struct {
 }
 
 func LoadConfig() (*Config, error) {
+	//TODO:Перенести путь
 	viper.AddConfigPath("/app/configs")
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")

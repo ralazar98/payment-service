@@ -27,7 +27,7 @@ func New(cfg configs.DatabaseConfig) *BankStore {
 		Password: cfg.DBPassword,
 		Database: cfg.DBName,
 	}
-	log.Println(connConf)
+
 	pool, err := pgx.NewConnPool(pgx.ConnPoolConfig{
 		ConnConfig:     connConf,
 		MaxConnections: 10,

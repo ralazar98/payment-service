@@ -78,7 +78,7 @@ func (myRabbit *Rabbit) NewConnection(cfg configs.RabbitMQConfig) error {
 		log.Println("Queue is declared")
 	}
 	msgs, err := channel.Consume(
-		cfg.RabbitUrl,
+		cfg.NameOfQueue,
 		"",
 		true,
 		false,
