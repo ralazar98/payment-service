@@ -17,7 +17,7 @@ type AppConfig struct {
 
 type DatabaseConfig struct {
 	Host       string `mapstructure:"host"`
-	Port       string `mapstructure:"port"`
+	Port       string `mapstructure:"port"` //TODO: мы можем указывать это сразу в инт, как ты проводишь в подключении к бд, это касается и других типов данных, мы можем сразу принимать time.Time или любые другие типы данных
 	DBName     string `mapstructure:"dbname"`
 	Username   string `ymapstructure:"username"`
 	DBPassword string `mapstructure:"password"`
@@ -30,6 +30,7 @@ type RabbitMQConfig struct {
 
 func LoadConfig() (*Config, error) {
 	//TODO:Перенести путь
+	//TODO:Верно
 	viper.AddConfigPath("/app/configs")
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")

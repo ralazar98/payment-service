@@ -19,6 +19,7 @@ func main() {
 	cfg, err := configs.LoadConfig()
 	if err != nil {
 		log.Println("Error loading config:", err)
+		//TODO: что произойдет если не удастся загрузить конфиг?
 	}
 
 	store := storage.New(cfg.Database)
@@ -27,6 +28,7 @@ func main() {
 	err = newRabbit.NewConnection(cfg.RabbitMQ)
 	if err != nil {
 		log.Println("Connection error:", err)
+		//TODO: что произойдет если не удастся подключиться к RabbitMQ? А пользователь хочет сделать платеж?
 	}
 
 	quit := make(chan os.Signal, 1)
