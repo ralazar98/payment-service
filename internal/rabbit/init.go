@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	rabbitmq "github.com/rabbitmq/amqp091-go"
 	"log"
 	"payment-service/configs"
 	"payment-service/internal/entity"
+	"time"
 )
 
 type PayI interface {
@@ -19,13 +21,22 @@ type Rabbit struct {
 	channel     *rabbitmq.Channel
 	store       PayI
 	exitContext context.Context
+	rabbitCfg   configs.RabbitMQConfig
 }
 
-func NewRabbit(ctx context.Context, store PayI) *Rabbit {
-	return &Rabbit{
+func NewRabbit(ctx context.Context, cfg configs.RabbitMQConfig, store PayI) (*Rabbit, error) {
+	newRabbit := &Rabbit{
 		store:       store,
 		exitContext: ctx,
+		rabbitCfg:   cfg,
 	}
+
+	err := newRabbit.NewConnection()
+	if err != nil {
+		return nil, err
+	}
+
+	return newRabbit, nil
 }
 
 func (myRabbit *Rabbit) Updater(messages <-chan rabbitmq.Delivery) {
@@ -33,47 +44,38 @@ func (myRabbit *Rabbit) Updater(messages <-chan rabbitmq.Delivery) {
 	for {
 		select {
 		case <-myRabbit.exitContext.Done():
-			log.Println("Test")
-			//TODO: убрать лог
 			myRabbit.CloseConnection()
 			return
 		case message := <-messages:
+			//TODO:пофикить пустые сообщения
+			if len(message.Body) == 0 {
+				continue
+			}
 			var user *entity.UpdateBalance
 			err := json.Unmarshal(message.Body, &user)
+
 			if err != nil {
-				//TODO:обработать ошибку, у тебя есть ошибка, то не должны вызывать следующую функцию
 				log.Println(err)
+				continue
 			}
 			myRabbit.store.Update(user)
 		}
 	}
 }
 
-func (myRabbit *Rabbit) NewConnection(cfg configs.RabbitMQConfig) error {
-	con, err := rabbitmq.Dial(cfg.RabbitUrl)
+func (myRabbit *Rabbit) NewConnection() error {
+	con, err := rabbitmq.Dial(myRabbit.rabbitCfg.RabbitUrl)
 	if err != nil {
-		log.Println("Failed to connect to RabbitMQ :", err)
-		return err
-	} else {
-		log.Println("Connected to RabbitMQ")
+		return fmt.Errorf("channel is closed: %w", err)
 	}
-	//TODO:Имеет смысл не делать блок else
-	// а просто написать так
-	// if err != nil {
-	//		log.Println("Failed to connect to RabbitMQ :", err)
-	//		return err
-	//	}
-	//	log.Println("Connected to RabbitMQ")
+
 	channel, err := con.Channel()
 	if err != nil {
-		log.Println("Failed to open a channel:", err)
-		return err
-	} else {
-		log.Println("Channel opened")
+		return fmt.Errorf("Failed to open a channel: %w ", err)
 	}
 
 	_, err = channel.QueueDeclare(
-		cfg.NameOfQueue,
+		myRabbit.rabbitCfg.NameOfQueue,
 		false,
 		false,
 		false,
@@ -81,14 +83,11 @@ func (myRabbit *Rabbit) NewConnection(cfg configs.RabbitMQConfig) error {
 		nil,
 	)
 	if err != nil {
-		log.Println("Failed to declare a queue:", err)
-		return err
-	} else {
-		log.Println("Queue is declared")
-		//TODO:Аналогично с прошлой
+		return fmt.Errorf("Failed to declare a queue: %w ", err)
 	}
+
 	msgs, err := channel.Consume(
-		cfg.NameOfQueue,
+		myRabbit.rabbitCfg.NameOfQueue,
 		"",
 		true,
 		false,
@@ -97,21 +96,44 @@ func (myRabbit *Rabbit) NewConnection(cfg configs.RabbitMQConfig) error {
 		nil,
 	)
 	if err != nil {
-		log.Println("Error on consume message", err)
-		return err
+		return fmt.Errorf("Error on consume message %w ", err)
 	}
 	if channel.IsClosed() {
-		log.Println("Channel is closed")
 		return errors.New("channel is closed")
 	}
-	//TODO:По ошибкам
-	// подумай насчет того, что бы просто возвращать новую ошибку с тексто, как у тебя в логах, но сохраняя старую
-	// return fmt.Errorf("channel is closed: %w", err)
-	// а сам лог об ошибки уже вызывать из места где ты его вызываешь, в нашем случае мейн
 
+	log.Println("Connect to RabbitMQ: Success! ")
 	go myRabbit.Updater(msgs)
+	go myRabbit.Reconnect()
 
 	return nil
+}
+
+func (myRabbit *Rabbit) Reconnect() {
+	closeErrChan := make(chan *rabbitmq.Error)
+	if myRabbit.con != nil {
+		myRabbit.con.NotifyClose(closeErrChan)
+	}
+	for {
+		<-closeErrChan
+		log.Println("Trying to Reconnect...")
+		timer := 1
+		for {
+			time.Sleep(time.Duration(timer) * time.Second)
+			err := myRabbit.NewConnection()
+			if err != nil {
+				timer *= 2
+				if timer > 30 {
+					timer = 30
+				}
+				log.Println("Failed to reconnect to RabbitMQ. Retrying...")
+				continue
+			}
+			log.Print("Reconnected to RabbitMQ")
+			break
+		}
+
+	}
 }
 
 func (myRabbit *Rabbit) CloseConnection() {

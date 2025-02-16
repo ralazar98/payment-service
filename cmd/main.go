@@ -16,19 +16,20 @@ func main() {
 
 	exitContext, cancel := context.WithCancel(context.Background())
 
-	cfg, err := configs.LoadConfig()
+	cfg, err := configs.LoadConfig("configs")
 	if err != nil {
 		log.Println("Error loading config:", err)
 		//TODO: что произойдет если не удастся загрузить конфиг?
 	}
 
-	store := storage.New(cfg.Database)
-
-	newRabbit := rabbit.NewRabbit(exitContext, store)
-	err = newRabbit.NewConnection(cfg.RabbitMQ)
+	store, err := storage.New(cfg.Database)
 	if err != nil {
-		log.Println("Connection error:", err)
-		//TODO: что произойдет если не удастся подключиться к RabbitMQ? А пользователь хочет сделать платеж?
+		log.Println("Error connecting to database:", err)
+	}
+
+	_, err = rabbit.NewRabbit(exitContext, cfg.RabbitMQ, store)
+	if err != nil {
+		log.Println("Error creating new rabbit:", err)
 	}
 
 	quit := make(chan os.Signal, 1)
